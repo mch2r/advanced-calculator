@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Advanced Calculator">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="42%" r="58%">
+      <stop offset="0%" stop-color="#ff9f0a" stop-opacity="0.26"/>
+      <stop offset="70%" stop-color="#ff9f0a" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#ff9f0a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="curve" x1="112" y1="352" x2="400" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ff9f0a"/>
+      <stop offset="100%" stop-color="#ffb340"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="#0f1115"/>
+  <circle cx="256" cy="238" r="236" fill="url(#glow)"/>
+  <rect x="52" y="52" width="408" height="408" rx="108" fill="#181c24" stroke="#2d3545" stroke-width="8"/>
+  <g stroke="#30394a" stroke-width="3" opacity="0.75">
+    <path d="M148 124V388M204 124V388M260 124V388M316 124V388M372 124V388"/>
+    <path d="M124 148H388M124 204H388M124 260H388M124 316H388M124 372H388"/>
+  </g>
+  <path d="M112 352H400" stroke="#5a82ff" stroke-width="8" stroke-linecap="round" opacity="0.9"/>
+  <path d="M112 352Q256 72 400 352" fill="none" stroke="url(#curve)" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="256" cy="212" r="17" fill="#ff9f0a" stroke="#181c24" stroke-width="7"/>
+</svg>

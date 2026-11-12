@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Evaluate, solve, differentiate, integrate, and graph with a keyboard-first calculator.">
+  <meta name="theme-color" content="#0f1115">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Calculator">
+  <title>Advanced Calculator</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="vendor/katex/katex.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app" aria-label="Advanced calculator">
+    <header class="app-header">
+      <div class="title-row">
+        <h1>Advanced Calculator</h1>
+        <div class="title-actions">
+          <button class="install-button" id="install-app" type="button" aria-label="Install Advanced Calculator" hidden>
+            <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
+              <path d="M8 2v7m0 0 3-3m-3 3L5 6M3 11v2.5h10V11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Install app</span>
+          </button>
+          <span class="title-badge" aria-hidden="true">&int;</span>
+        </div>
+      </div>
+      <p class="subtitle">Evaluate, solve, differentiate, integrate, and graph with keyboard-first input.</p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Calculator mode">
+      <button class="tab is-active" id="tab-evaluate" type="button" role="tab" aria-selected="true" aria-controls="panel" data-mode="evaluate">Evaluate</button>
+      <button class="tab" id="tab-solve" type="button" role="tab" aria-selected="false" aria-controls="panel" data-mode="solve">Solve</button>
+      <button class="tab" id="tab-derivative" type="button" role="tab" aria-selected="false" aria-controls="panel" data-mode="derivative">Derivative</button>
+      <button class="tab" id="tab-integral" type="button" role="tab" aria-selected="false" aria-controls="panel" data-mode="integral">Integral</button>
+      <button class="tab" id="tab-graph" type="button" role="tab" aria-selected="false" aria-controls="graph-workspace" data-mode="graph">Graph</button>
+    </div>
+
+    <section class="panel" id="panel" role="tabpanel" aria-labelledby="tab-evaluate">
+      <div class="field">
+        <label class="input-label" for="expression" id="expression-label">Expression</label>
+        <div class="input-wrap">
+          <input
+            class="expression-input"
+            id="expression"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            placeholder="2 + 3 * 4"
+            autofocus
+          >
+          <button class="fx-button" id="palette-toggle" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="palette" title="Function palette (Ctrl/Cmd+K)">
+            <span aria-hidden="true">&fnof;</span><span class="fx-x">(x)</span>
+          </button>
+        </div>
+        <p class="preview" id="preview" aria-live="off"></p>
+      </div>
+
+      <div class="field-group" id="derivative-options" hidden>
+        <label class="mini-field">
+          <span>Variable</span>
+          <input id="derivative-variable" type="text" value="x" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="mini-field">
+          <span>Order</span>
+          <select id="derivative-order">
+            <option value="1">1st</option>
+            <option value="2">2nd</option>
+            <option value="3">3rd</option>
+            <option value="4">4th</option>
+          </select>
+        </label>
+        <label class="mini-field">
+          <span>Evaluate at</span>
+          <input id="derivative-point" type="text" placeholder="optional" autocomplete="off" spellcheck="false">
+        </label>
+      </div>
+
+      <div class="field-group" id="integral-options" hidden>
+        <label class="mini-field">
+          <span>Variable</span>
+          <input id="integral-variable" type="text" value="x" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="mini-field">
+          <span>Lower</span>
+          <input id="integral-lower" type="text" value="0" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="mini-field">
+          <span>Upper</span>
+          <input id="integral-upper" type="text" value="1" autocomplete="off" spellcheck="false">
+        </label>
+      </div>
+
+      <div class="controls-row">
+        <div class="angle-toggle" role="group" aria-label="Angle unit">
+          <button type="button" class="angle-button is-active" data-angle="rad" aria-pressed="true">RAD</button>
+          <button type="button" class="angle-button" data-angle="deg" aria-pressed="false">DEG</button>
+        </div>
+        <button class="run-button" id="run-button" type="button">Run <kbd>&crarr;</kbd></button>
+      </div>
+
+      <div class="status" id="status" aria-live="polite"></div>
+      <div class="results" id="results" aria-live="polite"></div>
+    </section>
+
+    <section class="graph-workspace" id="graph-workspace" role="tabpanel" aria-labelledby="tab-graph" hidden>
+      <header class="card-header graph-workspace-header">
+        <div>
+          <h2>Graphing</h2>
+          <p class="graph-workspace-subtitle">Plot functions, explore points of interest, and trace curves.</p>
+        </div>
+        <div class="graph-tools">
+          <div class="angle-toggle" role="group" aria-label="Angle unit">
+            <button type="button" class="angle-button is-active" data-angle="rad" aria-pressed="true">RAD</button>
+            <button type="button" class="angle-button" data-angle="deg" aria-pressed="false">DEG</button>
+          </div>
+          <label class="graph-poi-toggle">
+            <input type="checkbox" id="graph-pois" checked>
+            <span>Points of interest</span>
+          </label>
+          <button class="ghost-button" id="graph-fit" type="button">Fit view</button>
+        </div>
+      </header>
+      <div class="graph-workspace-layout">
+        <div class="graph-sidebar">
+          <div class="graph-sidebar-header">
+            <h3>Expressions</h3>
+            <button class="ghost-button" id="graph-add" type="button">+ Add</button>
+          </div>
+          <ul class="graph-expression-list" id="graph-expression-list"></ul>
+          <p class="graph-empty-hint" id="graph-empty-hint">Add an expression such as sin(x) or x^2 - 4.</p>
+          <p class="graph-status" id="graph-status" aria-live="polite"></p>
+          <div class="graph-sliders" id="graph-sliders" hidden></div>
+        </div>
+        <div class="graph-stage">
+          <canvas id="graph-main" height="520" tabindex="0" aria-label="Graphing canvas. Drag to pan, scroll or pinch to zoom, and use the arrow keys to move."></canvas>
+          <p class="graph-readout" id="graph-main-readout" aria-live="polite"></p>
+          <p class="graph-hint graph-stage-hint">Drag to pan &middot; scroll or pinch to zoom &middot; double-click to zoom in</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="graph-card" id="graph-card" hidden>
+      <header class="card-header">
+        <h2>Graph</h2>
+        <div class="graph-tools">
+          <span class="graph-hint">Drag to pan &middot; scroll to zoom</span>
+          <button class="ghost-button" id="graph-reset" type="button">Reset view</button>
+        </div>
+      </header>
+      <canvas id="graph" height="320" tabindex="0" aria-label="Interactive plot of the current expression. Drag to pan, scroll or pinch to zoom, and use the arrow keys to move."></canvas>
+      <p class="graph-readout" id="graph-readout" aria-live="polite"></p>
+      <p class="graph-summary" id="graph-summary" aria-live="polite"></p>
+    </section>
+
+    <section class="steps-card" id="steps-card" hidden>
+      <button class="steps-toggle" id="steps-toggle" type="button" aria-expanded="false" aria-controls="steps">
+        <span>Show steps</span>
+        <span class="steps-chevron" aria-hidden="true">&#9662;</span>
+      </button>
+      <div class="steps" id="steps" hidden></div>
+    </section>
+
+    <section class="examples" id="examples" aria-label="Examples"></section>
+
+    <section class="history-section" id="history-section">
+      <header class="card-header">
+        <h2>History</h2>
+        <button class="ghost-button" id="history-clear" type="button">Clear</button>
+      </header>
+      <ul class="history-list" id="history"></ul>
+      <p class="history-empty" id="history-empty">Runs you execute will appear here.</p>
+    </section>
+
+    <footer class="hint">
+      <p><kbd>Tab</kbd> switch mode &middot; <kbd>Shift</kbd>+<kbd>Tab</kbd> reverse &middot; <kbd>Enter</kbd> run &middot; <kbd>Esc</kbd> close/clear &middot; <kbd>&#8984;</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> functions</p>
+      <p class="hint-symbols">Mac: <kbd>&radic;</kbd> Option+V &middot; <kbd>&pi;</kbd> Option+P &middot; <kbd>&divide;</kbd> Option+/ &middot; <kbd>^</kbd> Shift+6</p>
+    </footer>
+  </main>
+
+  <div class="palette-backdrop" id="palette-backdrop" hidden></div>
+  <div class="palette" id="palette" role="dialog" aria-modal="true" aria-labelledby="palette-title" hidden>
+    <div class="palette-header">
+      <h2 id="palette-title">Functions</h2>
+      <button class="ghost-button" id="palette-close" type="button">Done</button>
+    </div>
+    <input class="palette-search" id="palette-search" type="text" maxlength="80" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false" aria-label="Search functions">
+    <div class="palette-categories" id="palette-categories" role="tablist" aria-label="Function categories"></div>
+    <div class="palette-grid" id="palette-grid" role="listbox" aria-label="Functions"></div>
+  </div>
+
+  <script src="vendor/math.js"></script>
+  <script src="vendor/katex/katex.min.js"></script>
+  <script src="solver.js"></script>
+  <script src="calculus.js"></script>
+  <script src="plot.js"></script>
+  <script src="graph.js"></script>
+  <script src="palette.js"></script>
+  <script src="script.js"></script>
+  <script src="pwa.js"></script>
+</body>
+</html>
