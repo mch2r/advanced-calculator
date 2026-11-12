@@ -1,7 +1,7 @@
 "use strict";
 
 const CACHE_PREFIX = "advanced-calculator-";
-const CACHE_NAME = "advanced-calculator-v2";
+const CACHE_NAME = "advanced-calculator-v3";
 const INDEX_URL = "./index.html";
 
 const APP_SHELL = [

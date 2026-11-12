@@ -238,6 +238,39 @@
     }
   }
 
+  function escapeTexNumber(value) {
+    if (!Number.isFinite(value)) {
+      return String(value);
+    }
+
+    return String(value);
+  }
+
+  function buildIntegralTex(result) {
+    const lowerTex = result.lowerTex || escapeTexNumber(result.lower);
+    const upperTex = result.upperTex || escapeTexNumber(result.upper);
+    return "\\int_{" + lowerTex + "}^{" + upperTex + "} \\left[" +
+      (result.tex || result.expression) + "\\right]\\, d" + result.variable +
+      " = " + escapeTexNumber(result.value);
+  }
+
+  function buildIntegralPlotOptions(result) {
+    return {
+      curveLabel: "f(x)",
+      xMin: result.lower,
+      xMax: result.upper,
+      area: {
+        from: result.lower,
+        to: result.upper,
+        fromLabel: result.lowerText,
+        toLabel: result.upperText,
+        evaluate: result.evaluate,
+        color: "rgba(255, 159, 10, 0.22)",
+        label: "area",
+      },
+    };
+  }
+
   function init() {
     const doc = root && root.document;
 
@@ -718,17 +751,17 @@
         return;
       }
 
+      const lowerText = result.lowerText || solver.formatValue(result.lower);
+      const upperText = result.upperText || solver.formatValue(result.upper);
+
       setStatus(
-        "\u222b from " + solver.formatValue(result.lower) + " to " + solver.formatValue(result.upper) +
+        "\u222b from " + lowerText + " to " + upperText +
         " with respect to " + result.variable + ".",
         false
       );
 
       const card = createCard("Definite integral");
-      const integralTex =
-        "\\int_{" + escapeTexNumber(result.lower) + "}^{" + escapeTexNumber(result.upper) + "} " +
-        (result.tex || result.expression) + "\\, d" + result.variable + " = " + escapeTexNumber(result.value);
-      renderTex(card.body, integralTex, result.text, true);
+      renderTex(card.body, buildIntegralTex(result), result.text, true);
 
       const value = doc.createElement("div");
       value.className = "result-value";
@@ -738,14 +771,6 @@
       for (const warning of result.warnings || []) {
         addNote(warning);
       }
-    }
-
-    function escapeTexNumber(value) {
-      if (!Number.isFinite(value)) {
-        return String(value);
-      }
-
-      return String(value);
     }
 
     function renderDerivativeSteps(result) {
@@ -839,7 +864,7 @@
         return "d/d" + result.variable + " " + result.expression + " = " + result.derivative;
       }
 
-      return "\u222b " + result.expression + " d" + result.variable + " = " + result.text;
+      return "\u222b [" + result.expression + "] d" + result.variable + " = " + result.text;
     }
 
     function recordHistory(result) {
@@ -985,16 +1010,7 @@
           ],
         });
       } else if (state.mode === "integral" && result.evaluate) {
-        model = plot.buildPlotModel(result.evaluate, {
-          curveLabel: "f(x)",
-          area: {
-            from: result.lower,
-            to: result.upper,
-            evaluate: result.evaluate,
-            color: "rgba(255, 159, 10, 0.22)",
-            label: "area",
-          },
-        });
+        model = plot.buildPlotModel(result.evaluate, buildIntegralPlotOptions(result));
       }
 
       if (!model || (model.curves.length === 0 && !model.area)) {
@@ -1002,7 +1018,7 @@
         return;
       }
 
-      const fit = !state.lastPlot || state.lastPlotMode !== state.mode;
+      const fit = !state.lastPlot || state.lastPlotMode !== state.mode || state.mode === "integral";
       state.lastPlot = model;
       state.lastPlotMode = state.mode;
       elements.graphCard.hidden = false;
@@ -1010,7 +1026,10 @@
       const controller = ensureGraphController();
 
       if (controller) {
-        controller.setModel(model, { fit: fit });
+        controller.setModel(model, {
+          fit: fit,
+          xPadding: state.mode === "integral" ? 0 : undefined,
+        });
       } else {
         plot.drawPlot(elements.graph, model);
       }
@@ -1393,6 +1412,8 @@
     cycleMode: cycleMode,
     createHistoryStore: createHistoryStore,
     formatTimestamp: formatTimestamp,
+    buildIntegralTex: buildIntegralTex,
+    buildIntegralPlotOptions: buildIntegralPlotOptions,
     init: init,
   };
 

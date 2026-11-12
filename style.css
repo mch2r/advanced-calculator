@@ -391,8 +391,9 @@ button {
 .results {
   margin-top: 4px;
   max-height: 420px;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 6px;
   scrollbar-width: thin;
 }
 
@@ -447,7 +448,9 @@ button {
 }
 
 .result-card {
+  min-width: 0;
   padding: 14px 16px;
+  overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -466,13 +469,18 @@ button {
 }
 
 .result-tex {
+  max-width: 100%;
   margin-top: 8px;
+  padding-bottom: 4px;
   overflow-x: auto;
   overflow-y: hidden;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
   font-size: 1.15rem;
 }
 
 .result-card .katex-display {
+  max-width: 100%;
   margin: 0;
 }
 

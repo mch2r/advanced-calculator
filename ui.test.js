@@ -394,6 +394,38 @@ check("timestamp formatting is non-empty", function () {
   assert.ok(ui.formatTimestamp(Date.now()).length > 0);
 });
 
+check("integral plot options fit and label the bounds", function () {
+  const options = ui.buildIntegralPlotOptions({
+    lower: 0,
+    upper: Math.PI,
+    lowerText: "0",
+    upperText: "π",
+    evaluate: function () { return 0; },
+  });
+
+  assert.strictEqual(options.xMin, 0);
+  assert.strictEqual(options.xMax, Math.PI);
+  assert.strictEqual(options.area.from, 0);
+  assert.strictEqual(options.area.to, Math.PI);
+  assert.strictEqual(options.area.fromLabel, "0");
+  assert.strictEqual(options.area.toLabel, "π");
+});
+
+check("integral TeX brackets the integrand and uses pi bounds", function () {
+  const tex = ui.buildIntegralTex({
+    lower: 0,
+    upper: Math.PI,
+    lowerTex: "0",
+    upperTex: "\\pi",
+    tex: "x^2",
+    variable: "x",
+    value: Math.PI,
+  });
+
+  assert.ok(tex.indexOf("\\left[x^2\\right]") >= 0);
+  assert.ok(tex.indexOf("^{\\pi}") >= 0);
+});
+
 console.log("");
 console.log(passed + " passed, " + failed + " failed");
 

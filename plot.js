@@ -15,8 +15,8 @@
   const MAX_VIEW_SPAN = 1e12;
 
   function normalizeAxis(minValue, maxValue, fallbackMin, fallbackMax) {
-    let min = Number(minValue);
-    let max = Number(maxValue);
+    let min = minValue == null ? NaN : Number(minValue);
+    let max = maxValue == null ? NaN : Number(maxValue);
 
     if (!Number.isFinite(min)) {
       min = fallbackMin;
@@ -198,7 +198,8 @@
     });
   }
 
-  function fitViewportFromModel(model) {
+  function fitViewportFromModel(model, options) {
+    const settings = options || {};
     const points = [];
 
     if (model) {
@@ -225,8 +226,34 @@
       }
     }
 
-    return fitViewportFromPoints(points, {
+    const fitted = fitViewportFromPoints(points, {
       fallback: viewportFromModel(model),
+    });
+    let xMin = fitted.xMin;
+    let xMax = fitted.xMax;
+    let yMin = fitted.yMin;
+    let yMax = fitted.yMax;
+
+    if (Number.isFinite(settings.xPadding) && model && Array.isArray(model.xRange)) {
+      const xPadding = (model.xRange[1] - model.xRange[0]) * settings.xPadding;
+      xMin = model.xRange[0] - xPadding;
+      xMax = model.xRange[1] + xPadding;
+    }
+
+    if (model && model.area) {
+      yMin = Math.min(yMin, 0);
+      yMax = Math.max(yMax, 0);
+
+      const yPadding = (yMax - yMin) * 0.08;
+      yMin -= yPadding;
+      yMax += yPadding;
+    }
+
+    return normalizeViewport({
+      xMin: xMin,
+      xMax: xMax,
+      yMin: yMin,
+      yMax: yMax,
     });
   }
 
@@ -527,9 +554,12 @@
     return {
       from: from,
       to: to,
+      fromLabel: areaOptions.fromLabel || formatNumber(from),
+      toLabel: areaOptions.toLabel || formatNumber(to),
       start: sampleMin,
       end: sampleMax,
       points: points,
+      evaluate: areaOptions.evaluate,
       color: areaOptions.color || "rgba(255, 159, 10, 0.22)",
       stroke: areaOptions.stroke || "rgba(255, 159, 10, 0.55)",
       label: areaOptions.label || "area",
@@ -576,12 +606,13 @@
     const yRange = resolveYRange(curves, area, settings, scatter);
     const summaryParts = [];
 
-    for (const curve of curves) {
-      summaryParts.push(curve.label + " over x from " + formatNumber(xMin) + " to " + formatNumber(xMax));
-    }
-
     if (area) {
-      summaryParts.push("shaded area from " + formatNumber(area.from) + " to " + formatNumber(area.to));
+      summaryParts.push((curves.length > 0 ? curves[0].label : "f(x)") + " shaded area from " +
+        (area.fromLabel || formatNumber(area.from)) + " to " + (area.toLabel || formatNumber(area.to)));
+    } else {
+      for (const curve of curves) {
+        summaryParts.push(curve.label + " over x from " + formatNumber(xMin) + " to " + formatNumber(xMax));
+      }
     }
 
     if (roots.length > 0) {
@@ -611,6 +642,38 @@
     }
 
     return String(Math.round(value * 1000) / 1000);
+  }
+
+  function formatTick(value, step) {
+    const numeric = Number(value);
+
+    if (!Number.isFinite(numeric)) {
+      return "";
+    }
+
+    if (numeric === 0) {
+      return "0";
+    }
+
+    const absolute = Math.abs(numeric);
+
+    if (absolute >= 1000000 || absolute < 0.0001) {
+      return numeric
+        .toExponential(2)
+        .replace(/\.?0+e/, "e")
+        .replace("e+", "e");
+    }
+
+    const stepSize = Number.isFinite(step) ? Math.abs(step) : 1;
+    const decimals = stepSize > 0 && stepSize < 1
+      ? Math.min(6, Math.ceil(-Math.log(stepSize) / Math.LN10))
+      : 0;
+    const parts = numeric.toFixed(decimals).split(".");
+    const sign = parts[0].charAt(0) === "-" ? "-" : "";
+    const whole = (sign ? parts[0].slice(1) : parts[0]).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const fraction = parts[1] ? parts[1].replace(/0+$/, "") : "";
+
+    return sign + whole + (fraction ? "." + fraction : "");
   }
 
   function niceStep(range, target) {
@@ -659,15 +722,54 @@
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     context.clearRect(0, 0, cssWidth, cssHeight);
 
-    const padding = { left: 48, right: 18, top: 18, bottom: 30 };
-    const plotWidth = Math.max(1, cssWidth - padding.left - padding.right);
-    const plotHeight = Math.max(1, cssHeight - padding.top - padding.bottom);
     const activeViewport = normalizeViewport(viewport, viewportFromModel(model));
     const xMin = activeViewport.xMin;
     const xMax = activeViewport.xMax;
     const yMin = activeViewport.yMin;
     const yMax = activeViewport.yMax;
     const options = extras || {};
+    const xStep = niceStep(xMax - xMin, 6);
+    const yStep = niceStep(yMax - yMin, 5);
+    const xStart = Math.ceil(xMin / xStep) * xStep;
+    const yStart = Math.ceil(yMin / yStep) * yStep;
+    const xTicks = [];
+    const yTicks = [];
+
+    for (let x = xStart; x <= xMax + xStep * 1e-9; x += xStep) {
+      const value = Math.abs(x) < xStep * 1e-9 ? 0 : x;
+      xTicks.push({ value: value, label: formatTick(value, xStep) });
+    }
+
+    for (let y = yStart; y <= yMax + yStep * 1e-9; y += yStep) {
+      const value = Math.abs(y) < yStep * 1e-9 ? 0 : y;
+      yTicks.push({ value: value, label: formatTick(value, yStep) });
+    }
+
+    context.save();
+    context.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    context.fillStyle = "rgba(139, 147, 165, 0.9)";
+    context.strokeStyle = "rgba(255, 255, 255, 0.07)";
+    context.lineWidth = 1;
+
+    let maxYLabelWidth = 0;
+    let maxXLabelWidth = 0;
+
+    for (const tick of yTicks) {
+      maxYLabelWidth = Math.max(maxYLabelWidth, context.measureText(tick.label).width);
+    }
+
+    for (const tick of xTicks) {
+      maxXLabelWidth = Math.max(maxXLabelWidth, context.measureText(tick.label).width);
+    }
+
+    const padding = {
+      left: Math.max(40, Math.ceil(maxYLabelWidth) + 14),
+      right: Math.max(18, Math.ceil(maxXLabelWidth / 2) + 8),
+      top: 18,
+      bottom: 30,
+    };
+    const plotWidth = Math.max(1, cssWidth - padding.left - padding.right);
+    const plotHeight = Math.max(1, cssHeight - padding.top - padding.bottom);
 
     function toX(x) {
       return padding.left + ((x - xMin) / (xMax - xMin)) * plotWidth;
@@ -677,40 +779,29 @@
       return padding.top + (1 - (y - yMin) / (yMax - yMin)) * plotHeight;
     }
 
-    context.save();
-    context.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
-    context.fillStyle = "rgba(139, 147, 165, 0.9)";
-    context.strokeStyle = "rgba(255, 255, 255, 0.07)";
-    context.lineWidth = 1;
-
-    const xStep = niceStep(xMax - xMin, 6);
-    const yStep = niceStep(yMax - yMin, 5);
-    const xStart = Math.ceil(xMin / xStep) * xStep;
-    const yStart = Math.ceil(yMin / yStep) * yStep;
-
-    for (let x = xStart; x <= xMax; x += xStep) {
-      const px = toX(x);
+    for (const tick of xTicks) {
+      const px = toX(tick.value);
       context.beginPath();
       context.moveTo(px, padding.top);
       context.lineTo(px, padding.top + plotHeight);
       context.stroke();
 
-      if (x !== 0) {
+      if (tick.value !== 0) {
         context.textAlign = "center";
         context.textBaseline = "top";
-        context.fillText(formatNumber(x), px, padding.top + plotHeight + 7);
+        context.fillText(tick.label, px, padding.top + plotHeight + 7);
       }
     }
 
-    for (let y = yStart; y <= yMax; y += yStep) {
-      const py = toY(y);
+    for (const tick of yTicks) {
+      const py = toY(tick.value);
       context.beginPath();
       context.moveTo(padding.left, py);
       context.lineTo(padding.left + plotWidth, py);
       context.stroke();
       context.textAlign = "right";
       context.textBaseline = "middle";
-      context.fillText(formatNumber(y), padding.left - 8, py);
+      context.fillText(tick.label, padding.left - 8, py);
     }
 
     context.strokeStyle = "rgba(255, 255, 255, 0.28)";
@@ -728,6 +819,11 @@
       context.lineTo(toX(0), padding.top + plotHeight);
       context.stroke();
     }
+
+    context.save();
+    context.beginPath();
+    context.rect(padding.left, padding.top, plotWidth, plotHeight);
+    context.clip();
 
     if (model.area) {
       context.fillStyle = model.area.color;
@@ -845,6 +941,8 @@
       context.stroke();
     }
 
+    context.restore();
+
     if (options.trace) {
       const trace = options.trace;
       const px = toX(trace.x);
@@ -885,17 +983,27 @@
       }
     }
 
-    let legendX = padding.left + 8;
-    const legendY = padding.top + 10;
+    context.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    const legendStart = padding.left + 8;
+    const legendRight = padding.left + plotWidth - 8;
+    let legendX = legendStart;
+    let legendY = padding.top + 10;
 
     for (const curve of model.curves) {
+      const itemWidth = 15 + context.measureText(curve.label).width + 19;
+
+      if (legendX > legendStart && legendX + itemWidth > legendRight) {
+        legendX = legendStart;
+        legendY += 16;
+      }
+
       context.fillStyle = curve.color;
       context.fillRect(legendX, legendY - 3, 10, 3);
       context.fillStyle = "rgba(245, 247, 250, 0.85)";
       context.textAlign = "left";
       context.textBaseline = "middle";
       context.fillText(curve.label, legendX + 15, legendY);
-      legendX += context.measureText(curve.label).width + 34;
+      legendX += itemWidth;
     }
 
     context.restore();
@@ -918,5 +1026,6 @@
     findTrace: findTrace,
     niceStep: niceStep,
     formatNumber: formatNumber,
+    formatTick: formatTick,
   };
 });

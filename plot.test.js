@@ -18,6 +18,92 @@ function check(label, callback) {
   }
 }
 
+function fakeContext() {
+  const calls = { text: [], fills: [], clips: [] };
+  let pathLength = 0;
+  let clipRect = null;
+  const context = {
+    font: "",
+    fillStyle: "",
+    strokeStyle: "",
+    lineWidth: 1,
+    textAlign: "left",
+    textBaseline: "alphabetic",
+    lineJoin: "miter",
+    lineCap: "butt",
+    calls: calls,
+    measureText: function (text) {
+      return { width: String(text).length * 6.2 };
+    },
+    fillText: function (text, x, y) {
+      calls.text.push({
+        text: String(text),
+        x: x,
+        y: y,
+        align: context.textAlign,
+        width: context.measureText(text).width,
+      });
+    },
+    beginPath: function () {
+      pathLength = 0;
+    },
+    rect: function (x, y, width, height) {
+      clipRect = {
+        left: x,
+        top: y,
+        right: x + width,
+        bottom: y + height,
+        width: width,
+        height: height,
+      };
+    },
+    clip: function () {
+      if (clipRect) {
+        calls.clips.push(clipRect);
+        clipRect = null;
+      }
+    },
+    moveTo: function () {
+      pathLength += 1;
+    },
+    lineTo: function () {
+      pathLength += 1;
+    },
+    closePath: function () {},
+    fill: function () {
+      calls.fills.push({ fillStyle: context.fillStyle, pathLength: pathLength });
+    },
+    arc: function () {},
+    fillRect: function () {},
+    stroke: function () {},
+    setTransform: function () {},
+    clearRect: function () {},
+    save: function () {},
+    restore: function () {},
+    setLineDash: function () {},
+  };
+
+  return context;
+}
+
+function fakeCanvas(width, height) {
+  const context = fakeContext();
+
+  return {
+    clientWidth: width,
+    clientHeight: height,
+    width: 0,
+    height: 0,
+    context: context,
+    getContext: function () {
+      return context;
+    },
+    getAttribute: function () {
+      return null;
+    },
+  };
+}
+
 check("range calculation uses explicit bounds", function () {
   const model = plot.buildPlotModel(function (x) {
     return x * x;
@@ -88,6 +174,28 @@ check("root markers are placed on the axis", function () {
   assert.deepStrictEqual(model.roots[0], { x: -2, y: 0 });
 });
 
+check("integral area fits explicit bounds and keeps pi caption labels", function () {
+  const model = plot.buildPlotModel(function (x) {
+    return Math.sin(x);
+  }, {
+    xMin: 0,
+    xMax: Math.PI,
+    area: {
+      from: 0,
+      to: Math.PI,
+      fromLabel: "0",
+      toLabel: "π",
+    },
+    samples: 80,
+  });
+
+  assert.deepStrictEqual(model.xRange, [0, Math.PI]);
+  assert.strictEqual(model.area.fromLabel, "0");
+  assert.strictEqual(model.area.toLabel, "π");
+  assert.ok(model.summary.indexOf("from 0 to π") >= 0);
+  assert.strictEqual(model.summary.indexOf("3.14"), -1);
+});
+
 check("area points are bounded by the plot range", function () {
   const model = plot.buildPlotModel(function (x) {
     return x * x;
@@ -140,6 +248,146 @@ check("nice steps are rounded to 1/2/5", function () {
 
 check("drawPlot tolerates a missing canvas", function () {
   assert.strictEqual(plot.drawPlot(null, {}), null);
+});
+
+check("legend wraps inside a narrow canvas", function () {
+  const curves = [];
+
+  for (let index = 1; index <= 8; index += 1) {
+    curves.push({
+      evaluate: function (x) { return x * index; },
+      label: "legend-" + index,
+    });
+  }
+
+  const model = plot.buildPlotModel(null, { xMin: -1, xMax: 1, curves: curves, samples: 40 });
+  const canvas = fakeCanvas(320, 320);
+
+  plot.drawPlot(canvas, model, null, {});
+
+  const labels = canvas.context.calls.text.filter(function (entry) {
+    return entry.text.indexOf("legend-") === 0;
+  });
+  const rows = new Set(labels.map(function (entry) { return entry.y; }));
+
+  assert.strictEqual(labels.length, 8);
+  assert.ok(rows.size >= 2);
+  assert.ok(labels.every(function (entry) {
+    return entry.x + entry.width <= 320;
+  }));
+});
+
+check("tick labels use readable grouped and compact formats", function () {
+  assert.strictEqual(plot.formatTick(200000, 50000), "200,000");
+  assert.strictEqual(plot.formatTick(-200000, 50000), "-200,000");
+  assert.strictEqual(plot.formatTick(1500000, 500000), "1.5e6");
+  assert.strictEqual(plot.formatTick(0.00002, 0.00001), "2e-5");
+  assert.strictEqual(plot.formatTick(0.0001, 0.0001), "0.0001");
+  assert.strictEqual(plot.formatTick(0, 1), "0");
+});
+
+check("y-axis labels stay inside desktop and phone canvases", function () {
+  [320, 800].forEach(function (width) {
+    const model = plot.buildPlotModel(function (x) {
+      return 200000 + x * 100000;
+    }, { xMin: 0, xMax: 1, yMin: 180000, yMax: 320000, samples: 40 });
+    const canvas = fakeCanvas(width, 320);
+
+    plot.drawPlot(canvas, model, null, {});
+    const labels = canvas.context.calls.text.filter(function (call) {
+      return call.align === "right";
+    });
+
+    assert.ok(labels.length > 0, "No y-axis labels at width " + width);
+    labels.forEach(function (label) {
+      assert.ok(
+        label.x - label.width >= 0,
+        "Clipped label " + label.text + " at width " + width
+      );
+    });
+    assert.ok(labels.some(function (label) {
+      return label.text === "200,000";
+    }), "Expected grouped large-value label");
+  });
+});
+
+check("integral area fills between the configured bounds", function () {
+  const model = plot.buildPlotModel(function (x) {
+    return x * x;
+  }, {
+    xMin: -2,
+    xMax: 2,
+    area: { from: -1, to: 1, color: "rgba(255, 159, 10, 0.22)" },
+    samples: 80,
+  });
+  const canvas = fakeCanvas(640, 320);
+
+  plot.drawPlot(canvas, model, null, {});
+  const areaFill = canvas.context.calls.fills.filter(function (fill) {
+    return fill.fillStyle === model.area.color;
+  })[0];
+
+  assert.ok(areaFill, "Area fill was not drawn");
+  assert.ok(areaFill.pathLength > 3);
+});
+
+check("area fit keeps the zero baseline visible", function () {
+  const model = plot.buildPlotModel(function (x) {
+    return Math.sin(x) * Math.cos(x) * 2 * x * x - 3;
+  }, {
+    xMin: -2,
+    xMax: 2,
+    area: { from: -2, to: 2 },
+    samples: 80,
+  });
+  const viewport = plot.fitViewportFromModel(model, { xPadding: 0 });
+
+  assert.ok(viewport.yMin < 0, "Shaded area baseline is below the viewport");
+  assert.ok(viewport.yMax > 0, "Zero baseline is not visible in the viewport");
+});
+
+check("resampling keeps the shaded integral area", function () {
+  const model = plot.buildPlotModel(function (x) {
+    return Math.sin(x);
+  }, {
+    xMin: -2,
+    xMax: 2,
+    area: { from: -2, to: 2, fromLabel: "-2", toLabel: "2" },
+    samples: 80,
+  });
+  const viewport = plot.fitViewportFromModel(model, { xPadding: 0 });
+  const resampled = plot.resampleModel(model, viewport, 80);
+  const canvas = fakeCanvas(640, 320);
+
+  assert.ok(resampled.area, "Resampled model lost the shaded area");
+  plot.drawPlot(canvas, resampled, viewport, {});
+
+  const areaFill = canvas.context.calls.fills.filter(function (fill) {
+    return fill.fillStyle === resampled.area.color;
+  })[0];
+
+  assert.ok(areaFill, "Resampled area fill was not drawn");
+  assert.ok(areaFill.pathLength > 3);
+});
+
+check("plot data is clipped above the x-axis labels", function () {
+  const model = plot.buildPlotModel(function (x) {
+    return Math.sin(x);
+  }, { xMin: -2, xMax: 2, yMin: -0.5, yMax: 0.5, samples: 80 });
+  const canvas = fakeCanvas(640, 320);
+
+  plot.drawPlot(canvas, model, null, {});
+
+  const clip = canvas.context.calls.clips[0];
+  const xLabel = canvas.context.calls.text.filter(function (entry) {
+    return entry.align === "center";
+  })[0];
+
+  assert.ok(clip, "Plot data was not clipped");
+  assert.ok(clip.width < 640);
+  assert.ok(clip.height < 320);
+  assert.ok(xLabel, "No x-axis label was drawn");
+  assert.ok(clip.bottom < xLabel.y);
 });
 
 check("viewport screen and world conversion inverts", function () {

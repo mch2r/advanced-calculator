@@ -158,7 +158,10 @@ check("service worker precache stays same-origin and complete", function () {
 });
 
 check("service worker has versioning, navigation fallback, and cleanup", function () {
-  assert.ok(/const CACHE_NAME = "advanced-calculator-v\d+";/.test(worker));
+  const version = worker.match(/const CACHE_NAME = "advanced-calculator-v(\d+)";/);
+
+  assert.ok(version);
+  assert.ok(Number(version[1]) >= 3, "Cache version was not bumped for the graph fix");
   assert.ok(worker.indexOf('request.mode === "navigate"') >= 0);
   assert.ok(worker.indexOf("cache.match(INDEX_URL") >= 0);
   assert.ok(worker.indexOf("self.clients.claim()") >= 0);

@@ -455,6 +455,31 @@
     return result;
   }
 
+  function limitDisplay(value, numeric) {
+    const text = String(value == null ? "" : value).trim();
+
+    if (!text) {
+      return solver.formatValue(numeric);
+    }
+
+    return text.replace(/\bpi\b/gi, "π").replace(/\*/g, "·");
+  }
+
+  function limitTex(value, numeric) {
+    const text = String(value == null ? "" : value).trim();
+
+    if (!text) {
+      return String(numeric);
+    }
+
+    try {
+      const node = solver.parseExpression(solver.normalize(text), "limit");
+      return solver.toTex(node) || String(numeric);
+    } catch (error) {
+      return String(numeric);
+    }
+  }
+
   function differentiate(input, options) {
     try {
       const settings = options || {};
@@ -655,6 +680,10 @@
 
       let lower = parseLimit(settings.lower, "lower");
       let upper = parseLimit(settings.upper, "upper");
+      let lowerText = limitDisplay(settings.lower, lower);
+      let upperText = limitDisplay(settings.upper, upper);
+      let lowerTex = limitTex(settings.lower, lower);
+      let upperTex = limitTex(settings.upper, upper);
       let reversed = false;
       const warnings = [];
 
@@ -662,6 +691,12 @@
         const swap = lower;
         lower = upper;
         upper = swap;
+        const swapText = lowerText;
+        lowerText = upperText;
+        upperText = swapText;
+        const swapTex = lowerTex;
+        lowerTex = upperTex;
+        upperTex = swapTex;
         reversed = true;
       }
 
@@ -675,6 +710,10 @@
           variable: variable,
           lower: lower,
           upper: upper,
+          lowerText: lowerText,
+          upperText: upperText,
+          lowerTex: lowerTex,
+          upperTex: upperTex,
           value: 0,
           text: "0",
           steps: [],
@@ -854,6 +893,10 @@
         variable: variable,
         lower: lower,
         upper: upper,
+        lowerText: lowerText,
+        upperText: upperText,
+        lowerTex: lowerTex,
+        upperTex: upperTex,
         reversed: reversed,
         value: finalValue,
         text: solver.formatValue(finalValue),

@@ -114,6 +114,23 @@ check("integral of sin(x) from 0 to pi", function () {
   close(result.value, 2, 1e-8);
 });
 
+check("integral bounds keep pi display labels", function () {
+  const result = calculus.integrate("sin(x)", { lower: "0", upper: "pi" });
+  assert.strictEqual(result.ok, true, result.message);
+  assert.strictEqual(result.lowerText, "0");
+  assert.strictEqual(result.upperText, "π");
+  assert.strictEqual(result.lowerTex, "0");
+  assert.strictEqual(result.upperTex, "\\pi");
+});
+
+check("reversed integral bounds swap display labels", function () {
+  const result = calculus.integrate("sin(x)", { lower: "pi", upper: "0" });
+  assert.strictEqual(result.ok, true, result.message);
+  assert.strictEqual(result.reversed, true);
+  assert.strictEqual(result.lowerText, "0");
+  assert.strictEqual(result.upperText, "π");
+});
+
 check("integral of 1/x from 1 to e", function () {
   const result = calculus.integrate("1/x", { lower: "1", upper: "e" });
   assert.strictEqual(result.ok, true, result.message);

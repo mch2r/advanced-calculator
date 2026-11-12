@@ -33,10 +33,10 @@ Build a browser-based, keyboard-friendly online calculator that supports:
 | `palette.js` | Working | Function catalog, search, insertion, dialog controller |
 | `script.js` | Working | Five-mode controller, rendering, steps, graph, graph persistence, history, examples, DEG/RAD |
 | `solver.test.js` | Working | 25 engine checks |
-| `calculus.test.js` | Working | 32 derivative/integral/angle checks |
-| `plot.test.js` | Working | 20 plot-model and viewport checks |
-| `graph.test.js` | Working | 17 controller/workspace/POI/table/slider checks |
-| `ui.test.js` | Working | 12 palette/history/mode checks |
+| `calculus.test.js` | Working | 34 derivative/integral/angle/bound-label checks |
+| `plot.test.js` | Working | 28 plot-model, viewport, tick-label, area-render, resampling, clipping, and legend-layout checks |
+| `graph.test.js` | Working | 18 controller/workspace/POI/table/slider/fit-restore checks |
+| `ui.test.js` | Working | 15 palette/history/mode/integral-TeX/plot-options checks |
 | `pwa.test.js` | Working | 14 manifest/worker/install/registration/security checks |
 | `security.test.js` | Working | 3 sink/history/solver security checks |
 | `run-tests.jsc.js` | Working | JavaScriptCore CommonJS/assert harness |
@@ -93,7 +93,7 @@ Build a browser-based, keyboard-friendly online calculator that supports:
   - install button driven by `beforeinstallprompt`, hidden when unsupported or standalone
   - Apple touch icon and mobile web-app metadata
 - CSP, no-referrer policy, 500-character input/text caps, and storage-entry sanitization are enabled.
-- Tests pass through the JavaScriptCore harness: 124 checks (25 solver + 32 calculus + 20 plot + 17 graph + 13 UI + 14 PWA + 3 security).
+- Tests pass through the JavaScriptCore harness: 137 checks (25 solver + 34 calculus + 28 plot + 18 graph + 15 UI + 14 PWA + 3 security).
   - Node is not installed, so `node` was not used.
   - All 81 service-worker app-shell paths were served successfully by a local HTTP server.
 
@@ -339,10 +339,10 @@ Build a browser-based, keyboard-friendly online calculator that supports:
 ├── palette.js               # function catalog, categories, search, insertion
 ├── script.js                # mode controller, rendering, history, examples, graph persistence
 ├── solver.test.js           # 25 engine/regression tests
-├── calculus.test.js         # 32 derivative/integral/angle tests
-├── plot.test.js             # 20 plot-model + viewport tests
-├── graph.test.js            # 17 controller/compilation/POI/workspace tests
-├── ui.test.js               # 13 fake-DOM palette/history/mode tests
+├── calculus.test.js         # 34 derivative/integral/angle/bound-label tests
+├── plot.test.js             # 28 plot-model, viewport, tick-label, area-render, resampling, clipping, and legend-layout tests
+├── graph.test.js            # 18 controller/compilation/POI/workspace/fit-restore tests
+├── ui.test.js               # 15 fake-DOM palette/history/mode/integral-TeX/plot-options tests
 ├── pwa.test.js              # 14 manifest/worker/install/registration/security tests
 ├── security.test.js         # 3 sink/history/solver security tests
 ├── run-tests.jsc.js         # JavaScriptCore test harness
@@ -472,7 +472,7 @@ Expose/reuse from `solver.js`:
 ### 6.6 PWA and GitHub Pages design
 
 - No build step; `pwa.js` registers `./service-worker.js` after the app loads.
-- Cache name is versioned as `advanced-calculator-v2`; bump on each deployment.
+- Cache name is versioned as `advanced-calculator-v3`; bump on each deployment.
 - Precache 81 app-shell URLs, including every local script, style, manifest, icon, math.js, KaTeX asset, and KaTeX font.
 - Fetch strategy:
   - navigation: network-first, cached `index.html` fallback
@@ -510,7 +510,7 @@ Expose/reuse from `solver.js`:
 
 ## 8. Testing Plan
 
-Current automated baseline: **124 checks** = 25 solver + 32 calculus + 20 plot + 17 graph + 13 UI + 14 PWA + 3 security.
+Current automated baseline: **137 checks** = 25 solver + 34 calculus + 28 plot + 18 graph + 15 UI + 14 PWA + 3 security.
 
 ### Solver and calculus engine tests (`solver.test.js`, `calculus.test.js`)
 
@@ -546,6 +546,9 @@ Current automated baseline: **124 checks** = 25 solver + 32 calculus + 20 plot +
 - Integral area limits, root markers, empty/invalid handling
 - Screen/world conversion, cursor-anchored zoom, pan, fit
 - Resampling, trace lookup, scatter-point ranges
+- Grouped/compact tick formatting
+- Y-axis label fit at 320 px and 800 px canvas widths
+- Integral area fill path between configured bounds
 
 ### Graph tests (`graph.test.js`)
 
@@ -607,7 +610,7 @@ Current automated baseline: **124 checks** = 25 solver + 32 calculus + 20 plot +
 8. **Interactive graph (G0–G2)** — viewport math, scoped evaluators, trace, POIs, shared controller, fifth Graph tab with multi-curve plotting.
 9. **Graph tables and sliders (G3–G4)** — per-expression tables, scatter points, discovered parameter sliders, live rebuilds.
 10. **Graph persistence and polish (G5)** — localStorage persistence, responsive layout, keyboard/touch affordances.
-11. **Verification** — 124 checks pass via `run-tests.jsc.js`; fake-DOM smoke run exercises Evaluate, Solve, Derivative, Integral, steps, mode graph, fifth Graph workspace, history, and palette.
+11. **Verification** — 137 checks pass via `run-tests.jsc.js`; fake-DOM smoke run exercises Evaluate, Solve, Derivative, Integral, steps, mode graph, fifth Graph workspace, history, and palette.
 12. **Documentation reconciliation** — state tables, counts, Graph mode, load order, caps, and PWA/deployment notes brought up to date.
 13. **PWA implementation** — manifest, service worker, registration script, icons, install button, mobile metadata, `.nojekyll`, and `.gitignore`.
 14. **PWA verification** — 14 PWA tests pass; all 81 app-shell paths return HTTP 200 from a local server.
@@ -708,7 +711,10 @@ Current automated baseline: **124 checks** = 25 solver + 32 calculus + 20 plot +
 | 2026-11-11 | Service worker now caches only app-shell URLs and same-origin `basic` responses; removed `ignoreSearch` asset matching. |
 | 2026-11-11 | History entries are rebuilt from allowlisted fields; graph load clamps parameter values and text lengths. |
 | 2026-11-11 | Added `security.test.js`; automated baseline then became 120 checks. Bumped the app-shell cache to `advanced-calculator-v2` for the security deployment. |
-| 2026-11-12 | Added tan/arctan evaluation, DEG/RAD, derivative, and palette synonym tests; baseline is now 124 checks. |
+| 2026-11-12 | Added tan/arctan evaluation, DEG/RAD, derivative, and palette synonym tests; baseline then became 124 checks. |
+| 2026-11-12 | Plot ticks use grouped/compact labels and dynamic margins; `normalizeViewport(null, fallback)` now preserves the fallback. Added tick-format, desktop/phone clipping, and integral-area fill tests; baseline is now 127 checks. |
+| 2026-11-12 | Integral graphs fit their bounds automatically, preserve π bounds in the caption, bracket the integrand, and allow the result box to scroll instead of clipping. Graph legends wrap on narrow canvases; baseline is now 133 checks. |
+| 2026-11-12 | Fixed integral graph resampling dropping the shaded area, restored viewports overriding fitted integral bounds, clipped plot data above x-axis labels, kept the zero baseline visible for area fits, and bumped the app-shell cache to v3. Baseline is now 137 checks. |
 
 ## 13. Deployment Checklist
 

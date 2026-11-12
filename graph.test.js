@@ -125,6 +125,27 @@ check("controller fits a model on creation", function () {
   assert.ok(viewport.yMax > 12);
 });
 
+check("fitted models override a restored viewport", function () {
+  const controller = graph.createViewportController({
+    canvas: fakeCanvas(),
+    viewport: { xMin: -13, xMax: 13, yMin: -40, yMax: 40 },
+  });
+  const model = plot.buildPlotModel(function (x) {
+    return Math.sin(x);
+  }, {
+    xMin: -2,
+    xMax: 2,
+    area: { from: -2, to: 2 },
+    samples: 100,
+  });
+
+  controller.setModel(model, { fit: true, xPadding: 0 });
+
+  const viewport = controller.getViewport();
+  assert.strictEqual(viewport.xMin, -2);
+  assert.strictEqual(viewport.xMax, 2);
+});
+
 check("controller zooms around a point", function () {
   const controller = graph.createViewportController({
     canvas: fakeCanvas(),

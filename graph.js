@@ -136,7 +136,9 @@
       }
 
       if (modelSettings.fit !== false) {
-        state.viewport = plot.fitViewportFromModel(state.model);
+        state.viewport = plot.fitViewportFromModel(state.model, {
+          xPadding: modelSettings.xPadding,
+        });
       } else {
         state.viewport = plot.normalizeViewport(state.viewport, plot.viewportFromModel(state.model));
       }
