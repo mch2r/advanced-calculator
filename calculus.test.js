@@ -209,6 +209,20 @@ check("infinite integral limits are rejected", function () {
   assert.ok(/finite/i.test(result.message));
 });
 
+check("derivative of tan(x) is sec^2(x)", function () {
+  const x = 0.3;
+  close(derivativeValue("tan(x)", x), 1 / (Math.cos(x) * Math.cos(x)), 1e-10);
+
+  const degree = calculus.differentiate("tan(x)", { angleMode: "deg" });
+  assert.strictEqual(degree.ok, true, degree.message);
+  close(degree.evaluateDerivative(45), (Math.PI / 180) * 2, 1e-10);
+});
+
+check("derivative of atan(x) is 1/(1+x^2)", function () {
+  const x = 0.7;
+  close(derivativeValue("atan(x)", x), 1 / (1 + x * x), 1e-10);
+});
+
 check("arcsin normalization works", function () {
   const result = solver.evaluateExpression("arcsin(1)");
   assert.strictEqual(result.ok, true, result.message);

@@ -24,6 +24,11 @@ function rootTexts(input) {
   });
 }
 
+function close(actual, expected, tolerance) {
+  const limit = tolerance == null ? 1e-8 : tolerance;
+  assert.ok(Math.abs(actual - expected) <= limit, "expected " + expected + " but got " + actual);
+}
+
 check("quadratic with two roots", function () {
   assert.deepStrictEqual(rootTexts("x^2=4"), ["-2", "2"]);
 });
@@ -133,6 +138,23 @@ check("overlong expressions are rejected", function () {
   const result = solver.evaluateExpression("1+" + "1+".repeat(260) + "1");
   assert.strictEqual(result.status, "error");
   assert.ok(/too long/i.test(result.message));
+});
+
+check("tan and arctan evaluation honors radians and degrees", function () {
+  const tangent = solver.evaluateExpression("tan(pi/4)");
+  const inverse = solver.evaluateExpression("arctan(1)");
+  const degreeTangent = solver.evaluateExpression("tan(45)", { angleMode: "deg" });
+  const degreeInverse = solver.evaluateExpression("atan(1)", { angleMode: "deg" });
+
+  assert.strictEqual(tangent.ok, true, tangent.message);
+  assert.strictEqual(inverse.ok, true, inverse.message);
+  assert.strictEqual(degreeTangent.ok, true, degreeTangent.message);
+  assert.strictEqual(degreeInverse.ok, true, degreeInverse.message);
+
+  close(solver.safeNumber(tangent.value), 1, 1e-12);
+  close(solver.safeNumber(inverse.value), Math.PI / 4, 1e-12);
+  close(solver.safeNumber(degreeTangent.value), 1, 1e-12);
+  close(solver.safeNumber(degreeInverse.value), 45, 1e-12);
 });
 
 console.log("");

@@ -240,6 +240,18 @@ check("palette filters by label and synonyms", function () {
   }));
 });
 
+check("palette finds tangent and inverse tangent synonyms", function () {
+  const tangent = paletteLib.filterCatalog("tangent", "trig").map(function (item) {
+    return item.id;
+  });
+  const inverse = paletteLib.filterCatalog("inverse tangent", "trig").map(function (item) {
+    return item.id;
+  });
+
+  assert.ok(tangent.indexOf("tan") >= 0);
+  assert.ok(inverse.indexOf("atan") >= 0);
+});
+
 check("palette insertion handles cursor and selections", function () {
   const plain = paletteLib.applyInsertion("2+", 2, 2, { insert: "sin(|)" });
   assert.strictEqual(plain.value, "2+sin()");
