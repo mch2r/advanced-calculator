@@ -26,6 +26,7 @@
   const ANGLE_KEY = "advanced-calculator-angle";
   const GRAPH_KEY = "advanced-calculator-graph";
   const MAX_HISTORY = 50;
+  const MAX_STORED_TEXT = 500;
 
   const LABELS = {
     evaluate: "Expression",
@@ -87,6 +88,47 @@
     return MODES[(start + delta + MODES.length) % MODES.length];
   }
 
+  function storedText(value) {
+    return typeof value === "string" ? value.slice(0, MAX_STORED_TEXT) : "";
+  }
+
+  function sanitizeHistoryInputs(mode, inputs) {
+    const source = inputs && typeof inputs === "object" ? inputs : {};
+    const result = { expression: storedText(source.expression) };
+
+    if (mode === "derivative") {
+      result.variable = storedText(source.variable) || "x";
+      result.order = /^[1-4]$/.test(source.order) ? source.order : "1";
+      result.point = storedText(source.point);
+    } else if (mode === "integral") {
+      result.variable = storedText(source.variable) || "x";
+      result.lower = storedText(source.lower);
+      result.upper = storedText(source.upper);
+    }
+
+    return result;
+  }
+
+  function sanitizeHistoryEntry(entry) {
+    if (
+      !entry ||
+      MODES.indexOf(entry.mode) < 0 ||
+      !entry.inputs ||
+      typeof entry.inputs !== "object" ||
+      typeof entry.summary !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      mode: entry.mode,
+      inputs: sanitizeHistoryInputs(entry.mode, entry.inputs),
+      angleMode: entry.angleMode === "deg" ? "deg" : "rad",
+      summary: entry.summary.slice(0, MAX_STORED_TEXT),
+      timestamp: Number.isFinite(entry.timestamp) ? entry.timestamp : 0,
+    };
+  }
+
   function createHistoryStore(storageKey, storage) {
     const key = storageKey || HISTORY_KEY;
     let backend = storage || null;
@@ -111,15 +153,12 @@
         const raw = backend.getItem(key);
         const parsed = raw ? JSON.parse(raw) : [];
         items = Array.isArray(parsed)
-          ? parsed.filter(function (entry) {
-              return (
-                entry &&
-                MODES.indexOf(entry.mode) >= 0 &&
-                entry.inputs &&
-                typeof entry.inputs === "object" &&
-                typeof entry.summary === "string"
-              );
-            }).slice(0, MAX_HISTORY)
+          ? parsed
+              .map(sanitizeHistoryEntry)
+              .filter(function (entry) {
+                return entry !== null;
+              })
+              .slice(0, MAX_HISTORY)
           : [];
       } catch (error) {
         items = [];
@@ -145,7 +184,9 @@
     }
 
     function add(entry) {
-      if (!entry) {
+      const safeEntry = sanitizeHistoryEntry(entry);
+
+      if (!safeEntry) {
         return;
       }
 
@@ -153,14 +194,14 @@
 
       if (
         last &&
-        last.mode === entry.mode &&
-        last.summary === entry.summary &&
-        JSON.stringify(last.inputs) === JSON.stringify(entry.inputs)
+        last.mode === safeEntry.mode &&
+        last.summary === safeEntry.summary &&
+        JSON.stringify(last.inputs) === JSON.stringify(safeEntry.inputs)
       ) {
         return;
       }
 
-      items.unshift(entry);
+      items.unshift(safeEntry);
 
       if (items.length > MAX_HISTORY) {
         items = items.slice(0, MAX_HISTORY);

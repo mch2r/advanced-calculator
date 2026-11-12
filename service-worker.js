@@ -1,7 +1,7 @@
 "use strict";
 
 const CACHE_PREFIX = "advanced-calculator-";
-const CACHE_NAME = "advanced-calculator-v1";
+const CACHE_NAME = "advanced-calculator-v2";
 const INDEX_URL = "./index.html";
 
 const APP_SHELL = [
@@ -88,6 +88,38 @@ const APP_SHELL = [
   "./vendor/katex/fonts/KaTeX_Typewriter-Regular.woff2",
 ];
 
+const APP_SHELL_URLS = new Set(
+  APP_SHELL.map(function (path) {
+    return new URL(path, self.location.href).href;
+  })
+);
+
+function isSameOriginUrl(value) {
+  try {
+    return new URL(value, self.location.href).origin === self.location.origin;
+  } catch (error) {
+    return false;
+  }
+}
+
+function isCacheableResponse(response, request) {
+  if (!response || response.status !== 200 || response.type !== "basic") {
+    return false;
+  }
+
+  return isSameOriginUrl(response.url || request.url);
+}
+
+function isShellNavigation(request) {
+  if (!isSameOriginUrl(request.url)) {
+    return false;
+  }
+
+  const basePath = new URL("./", self.location.href).pathname;
+  const path = new URL(request.url).pathname;
+  return path === basePath || path === basePath + "index.html";
+}
+
 function offlineResponse() {
   return new Response("Advanced Calculator is offline. Reconnect and reload to try again.", {
     status: 503,
@@ -102,13 +134,13 @@ async function networkFirstNavigation(request) {
   try {
     const response = await fetch(request);
 
-    if (response && response.status === 200) {
+    if (isShellNavigation(request) && isCacheableResponse(response, request)) {
       await cache.put(INDEX_URL, response.clone());
     }
 
     return response;
   } catch (error) {
-    const cached = await cache.match(INDEX_URL, { ignoreSearch: true });
+    const cached = await cache.match(INDEX_URL);
 
     if (cached) {
       return cached;
@@ -121,11 +153,11 @@ async function networkFirstNavigation(request) {
 function serveAsset(event) {
   const cachePromise = caches.open(CACHE_NAME);
   const cachedPromise = cachePromise.then(function (cache) {
-    return cache.match(event.request, { ignoreSearch: true });
+    return cache.match(event.request);
   });
   const networkPromise = cachePromise.then(function (cache) {
     return fetch(event.request).then(function (response) {
-      if (response && response.status === 200) {
+      if (isCacheableResponse(response, event.request)) {
         return cache.put(event.request, response.clone()).then(function () {
           return response;
         });
@@ -219,6 +251,10 @@ self.addEventListener("fetch", function (event) {
   }
 
   if (request.headers && typeof request.headers.has === "function" && request.headers.has("Range")) {
+    return;
+  }
+
+  if (!APP_SHELL_URLS.has(request.url)) {
     return;
   }
 

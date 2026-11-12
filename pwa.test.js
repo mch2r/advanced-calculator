@@ -171,6 +171,26 @@ check("service worker limits caching to same-origin GET requests", function () {
   assert.ok(worker.indexOf("./vendor/katex/fonts/KaTeX_Typewriter-Regular.woff2") >= 0);
 });
 
+check("index sets a restrictive CSP and no-referrer policy", function () {
+  assert.ok(index.indexOf('http-equiv="Content-Security-Policy"') >= 0);
+  assert.ok(index.indexOf("default-src 'none'") >= 0);
+  assert.ok(index.indexOf("script-src 'self'") >= 0);
+  assert.ok(index.indexOf("object-src 'none'") >= 0);
+  assert.ok(index.indexOf('name="referrer" content="no-referrer"') >= 0);
+  assert.ok(index.indexOf('maxlength="500"') >= 0);
+  assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>/i.test(index), "Inline script found");
+  assert.ok(!/\son[a-z]+\s*=/i.test(index), "Inline event handler found");
+});
+
+check("service worker only caches app shell assets and safe responses", function () {
+  assert.ok(worker.indexOf("const APP_SHELL_URLS = new Set(") >= 0);
+  assert.ok(worker.indexOf("if (!APP_SHELL_URLS.has(request.url))") >= 0);
+  assert.ok(worker.indexOf("isCacheableResponse") >= 0);
+  assert.ok(worker.indexOf('response.type !== "basic"') >= 0);
+  assert.ok(worker.indexOf("isShellNavigation(request)") >= 0);
+  assert.ok(worker.indexOf("ignoreSearch") < 0);
+});
+
 check("standalone detection covers display mode and iOS", function () {
   assert.strictEqual(pwa.isStandalone({ navigator: { standalone: true } }), true);
   assert.strictEqual(

@@ -35,9 +35,10 @@ Build a browser-based, keyboard-friendly online calculator that supports:
 | `solver.test.js` | Working | 24 engine checks |
 | `calculus.test.js` | Working | 30 derivative/integral/angle checks |
 | `plot.test.js` | Working | 20 plot-model and viewport checks |
-| `graph.test.js` | Working | 16 controller/workspace/POI/table/slider checks |
+| `graph.test.js` | Working | 17 controller/workspace/POI/table/slider checks |
 | `ui.test.js` | Working | 12 palette/history/mode checks |
-| `pwa.test.js` | Working | 12 manifest/worker/install/registration checks |
+| `pwa.test.js` | Working | 14 manifest/worker/install/registration/security checks |
+| `security.test.js` | Working | 3 sink/history/solver security checks |
 | `run-tests.jsc.js` | Working | JavaScriptCore CommonJS/assert harness |
 | `manifest.webmanifest` | Working | Installable PWA metadata and icons |
 | `service-worker.js` | Working | Versioned app-shell cache, navigation fallback, asset refresh |
@@ -88,10 +89,11 @@ Build a browser-based, keyboard-friendly online calculator that supports:
   - web app manifest with 192/512 and maskable icons
   - versioned service worker precaching 81 app-shell URLs
   - navigation network-first with cached `index.html` offline fallback
-  - same-origin asset cache-first behavior with background refresh
+  - app-shell-only asset cache-first behavior with background refresh
   - install button driven by `beforeinstallprompt`, hidden when unsupported or standalone
   - Apple touch icon and mobile web-app metadata
-- Tests pass through the JavaScriptCore harness: 114 checks (24 solver + 30 calculus + 20 plot + 16 graph + 12 UI + 12 PWA).
+- CSP, no-referrer policy, 500-character input/text caps, and storage-entry sanitization are enabled.
+- Tests pass through the JavaScriptCore harness: 120 checks (24 solver + 30 calculus + 20 plot + 17 graph + 12 UI + 14 PWA + 3 security).
   - Node is not installed, so `node` was not used.
   - All 81 service-worker app-shell paths were served successfully by a local HTTP server.
 
@@ -339,9 +341,10 @@ Build a browser-based, keyboard-friendly online calculator that supports:
 ├── solver.test.js           # 24 engine/regression tests
 ├── calculus.test.js         # 30 derivative/integral/angle tests
 ├── plot.test.js             # 20 plot-model + viewport tests
-├── graph.test.js            # 16 controller/compilation/POI/workspace tests
+├── graph.test.js            # 17 controller/compilation/POI/workspace tests
 ├── ui.test.js               # 12 fake-DOM palette/history/mode tests
-├── pwa.test.js              # 12 manifest/worker/install/registration tests
+├── pwa.test.js              # 14 manifest/worker/install/registration/security tests
+├── security.test.js         # 3 sink/history/solver security tests
 ├── run-tests.jsc.js         # JavaScriptCore test harness
 ├── manifest.webmanifest     # PWA manifest and icon declarations
 ├── service-worker.js        # offline cache/update worker
@@ -469,7 +472,7 @@ Expose/reuse from `solver.js`:
 ### 6.6 PWA and GitHub Pages design
 
 - No build step; `pwa.js` registers `./service-worker.js` after the app loads.
-- Cache name is versioned as `advanced-calculator-v1`; bump on each deployment.
+- Cache name is versioned as `advanced-calculator-v2`; bump on each deployment.
 - Precache 81 app-shell URLs, including every local script, style, manifest, icon, math.js, KaTeX asset, and KaTeX font.
 - Fetch strategy:
   - navigation: network-first, cached `index.html` fallback
@@ -507,7 +510,7 @@ Expose/reuse from `solver.js`:
 
 ## 8. Testing Plan
 
-Current automated baseline: **114 checks** = 24 solver + 30 calculus + 20 plot + 16 graph + 12 UI + 12 PWA.
+Current automated baseline: **120 checks** = 24 solver + 30 calculus + 20 plot + 17 graph + 12 UI + 14 PWA + 3 security.
 
 ### Solver and calculus engine tests (`solver.test.js`, `calculus.test.js`)
 
@@ -576,10 +579,14 @@ Current automated baseline: **114 checks** = 24 solver + 30 calculus + 20 plot +
 - localStorage persistence across reloads and PWA restarts
 - GitHub Pages subpath asset loading
 
-### Security tests
+### Security tests (`security.test.js`, plus PWA/graph checks)
 
-- Unsupported functions and identifiers rejected
-- No parser escape routes
+- Shipped scripts contain no `innerHTML`, `eval`, `new Function`, `document.write`, or `srcdoc` sinks
+- History loading drops unknown fields/prototype payloads and caps text at 500 characters
+- Solver rejects prototype/environment identifiers such as `constructor`, `__proto__`, and `globalThis`
+- Index enforces CSP/no-referrer and has no inline scripts or event handlers
+- Service worker caches only app-shell URLs and same-origin `basic` responses
+- Graph load clamps persisted parameter values and caps expression/table text
 
 ## 9. Implementation Order / Next Steps
 
@@ -595,17 +602,17 @@ Current automated baseline: **114 checks** = 24 solver + 30 calculus + 20 plot +
 8. **Interactive graph (G0–G2)** — viewport math, scoped evaluators, trace, POIs, shared controller, fifth Graph tab with multi-curve plotting.
 9. **Graph tables and sliders (G3–G4)** — per-expression tables, scatter points, discovered parameter sliders, live rebuilds.
 10. **Graph persistence and polish (G5)** — localStorage persistence, responsive layout, keyboard/touch affordances.
-11. **Verification** — 114 checks pass via `run-tests.jsc.js`; fake-DOM smoke run exercises Evaluate, Solve, Derivative, Integral, steps, mode graph, fifth Graph workspace, history, and palette.
+11. **Verification** — 120 checks pass via `run-tests.jsc.js`; fake-DOM smoke run exercises Evaluate, Solve, Derivative, Integral, steps, mode graph, fifth Graph workspace, history, and palette.
 12. **Documentation reconciliation** — state tables, counts, Graph mode, load order, caps, and PWA/deployment notes brought up to date.
 13. **PWA implementation** — manifest, service worker, registration script, icons, install button, mobile metadata, `.nojekyll`, and `.gitignore`.
-14. **PWA verification** — 12 static tests pass; all 81 app-shell paths return HTTP 200 from a local server.
-15. **Local Git preparation** — initialize `main` and create the initial commit; no remote or push.
+14. **PWA verification** — 14 PWA tests pass; all 81 app-shell paths return HTTP 200 from a local server.
+15. **Local Git preparation** — initialize `main`, configure `origin`, and publish the initial commit.
 
 ### Remaining deployment phase
 
 1. **Browser verification** — install prompt, standalone launch, offline reload, and update flow in a real browser.
-2. **GitHub repository** — user creates `advanced-calculator` on GitHub.
-3. **Publish** — add the remote, push `main`, and enable Pages from `main`/root.
+2. **GitHub repository** — `advanced-calculator` exists with `origin` configured and `main` pushed. **Done.**
+3. **Pages** — enable GitHub Pages from `main`/root.
 4. **Live verification** — check the project-site subpath, assets, offline reload, and installability.
 
 ### Remaining / future
@@ -689,19 +696,46 @@ Current automated baseline: **114 checks** = 24 solver + 30 calculus + 20 plot +
 | 2026-11-10 | Git will be initialized and committed locally; no remote push without explicit authorization. |
 | 2026-11-11 | PWA implemented: manifest, versioned service worker, registration/install script, SVG/PNG icons, install button, and mobile metadata. |
 | 2026-11-11 | App-shell cache `advanced-calculator-v1` precaches 81 same-origin URLs; navigation is network-first with cached `index.html` fallback. |
-| 2026-11-11 | PWA static tests added; total automated baseline is 114 checks. |
+| 2026-11-11 | PWA static tests added; the baseline then was 114 checks (superseded by the security test run). |
 | 2026-11-11 | Added `.nojekyll` and `.gitignore`; initialized local Git and created the initial commit without a remote. |
+| 2026-11-11 | Security review: no secrets or dynamic-code/HTML sinks found in shipped app scripts; no high-severity issues. |
+| 2026-11-11 | Added CSP (`default-src 'none'`, self scripts/styles/worker) and `no-referrer`; capped expression and table inputs at 500 characters. |
+| 2026-11-11 | Service worker now caches only app-shell URLs and same-origin `basic` responses; removed `ignoreSearch` asset matching. |
+| 2026-11-11 | History entries are rebuilt from allowlisted fields; graph load clamps parameter values and text lengths. |
+| 2026-11-11 | Added `security.test.js`; automated baseline is now 120 checks. Bumped the app-shell cache to `advanced-calculator-v2` for the security deployment. |
 
 ## 13. Deployment Checklist
 
 1. [x] Add `manifest.webmanifest`, `service-worker.js`, `pwa.js`, and icon assets.
 2. [x] Add head metadata, install button markup, and styles.
-3. [x] Run the 114-check suite and local HTTP smoke test.
+3. [x] Run the 120-check suite and local HTTP smoke test.
 4. [ ] Verify install prompt, standalone launch, and offline reload in a browser.
 5. [x] Add `.nojekyll` and `.gitignore`.
 6. [x] Initialize Git on `main` and create an initial commit.
-7. [ ] Create the GitHub repository `advanced-calculator`.
-8. [ ] Add the remote and push `main`.
+7. [x] Create the GitHub repository `advanced-calculator`.
+8. [x] Add the remote and push `main`.
 9. [ ] Enable GitHub Pages from `main` / root.
 10. [ ] Verify `https://<username>.github.io/advanced-calculator/` loads all assets, works offline, and remains installable.
 
+
+## 14. Security Review (2026-11-11)
+
+### Findings
+
+- **High:** none.
+- **Medium:** no CSP/referrer policy; service worker pre-cached any same-origin GET/navigation response; stored graph/history data had weak length/value bounds.
+- **Low/informational:** solver permits client-side CPU-heavy expressions (self-DoS only); `new Function` exists only in the test harness; history and graph data are stored in cleartext localStorage; the Git author email is public.
+
+### Applied fixes
+
+- Added CSP (`default-src 'none'`, `script-src 'self'`, `worker-src 'self'`, scoped style/image/font/connect/manifest sources), `no-referrer`, and `maxlength="500"` inputs.
+- Restricted service-worker caching to the 81 app-shell URLs and same-origin `basic` 200 responses; only `/` and `/index.html` can refresh the cached index; removed `ignoreSearch` asset matching.
+- Rebuilt history entries from allowlisted fields; capped summary/expression text; dropped unknown fields and prototype payloads.
+- Capped graph expression/table text and clamped restored slider values to their slider bounds.
+- Added sink/history/CSP/worker/graph security regressions; 120 checks pass.
+
+### Residual risks
+
+- Any same-origin compromise can read localStorage and the PWA cache; there is no server-side secret in this static app.
+- Complex valid expressions can still consume client CPU; no cross-user impact.
+- Browser install/offline behavior and GitHub Pages live deployment still require manual verification.

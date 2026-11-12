@@ -302,6 +302,35 @@ check("workspace discovers sliders and serializes state", function () {
   assert.strictEqual(workspace.getExpressions()[0].tableVisible, true);
 });
 
+check("workspace load clamps stored parameters and text sizes", function () {
+  const workspace = graph.createGraphWorkspace({
+    document: fakeDocument(),
+    canvas: fakeCanvas(),
+    list: fakeElement("ul"),
+    sliders: fakeElement("div"),
+    status: fakeElement("p"),
+    empty: fakeElement("p"),
+  });
+
+  workspace.load({
+    expressions: [
+      {
+        text: "a*x",
+        tableVisible: true,
+        tableRows: [{ x: "9".repeat(600), y: "y".repeat(600) }],
+      },
+    ],
+    parameters: { a: 999 },
+  });
+
+  assert.strictEqual(workspace.getParameters().a, 10);
+  assert.strictEqual(workspace.getExpressions()[0].tableRows[0].x.length, 500);
+  assert.strictEqual(workspace.getExpressions()[0].tableRows[0].y.length, 500);
+
+  workspace.load({ expressions: [{ text: "x".repeat(600), tableRows: [] }] });
+  assert.strictEqual(workspace.getExpressions()[0].text.length, 500);
+});
+
 console.log("");
 console.log(passed + " passed, " + failed + " failed");
 

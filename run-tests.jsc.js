@@ -152,6 +152,7 @@
     "graph.test.js",
     "ui.test.js",
     "pwa.test.js",
+    "security.test.js",
   ];
 
   for (var i = 0; i < files.length; i += 1) {

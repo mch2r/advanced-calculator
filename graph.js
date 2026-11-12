@@ -12,6 +12,19 @@
   const MAX_ZOOM = 1e6;
   const MAX_EXPRESSIONS = 8;
   const MAX_TABLE_ROWS = 50;
+  const MAX_TEXT_LENGTH = 500;
+
+  function storedText(value) {
+    if (typeof value === "string") {
+      return value.slice(0, MAX_TEXT_LENGTH);
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+
+    return "";
+  }
 
   function copyViewport(viewport) {
     return {
@@ -829,6 +842,7 @@
       const input = doc.createElement("input");
       input.className = "graph-expression-input";
       input.type = "text";
+      input.maxLength = MAX_TEXT_LENGTH;
       input.value = entry.text;
       input.autocomplete = "off";
       input.autocapitalize = "off";
@@ -885,12 +899,14 @@
           const xInput = doc.createElement("input");
           xInput.type = "text";
           xInput.className = "graph-table-input";
+          xInput.maxLength = MAX_TEXT_LENGTH;
           xInput.value = tableRow.x;
           xInput.placeholder = "x";
           xInput.setAttribute("aria-label", "Table x value " + (index + 1));
           const yInput = doc.createElement("input");
           yInput.type = "text";
           yInput.className = "graph-table-input";
+          yInput.maxLength = MAX_TEXT_LENGTH;
           yInput.value = tableRow.y;
           yInput.placeholder = "y";
           yInput.setAttribute("aria-label", "Table y value " + (index + 1));
@@ -1192,7 +1208,7 @@
       const rowOptions = addOptions || {};
       const entry = {
         id: state.nextId,
-        text: String(text == null ? "" : text),
+        text: String(text == null ? "" : text).slice(0, MAX_TEXT_LENGTH),
         color: colors[(state.nextId - 1) % colors.length],
         visible: true,
         error: "",
@@ -1284,15 +1300,15 @@
         const rows = Array.isArray(entry.tableRows)
           ? entry.tableRows.slice(0, MAX_TABLE_ROWS).map(function (row) {
               return {
-                x: String(row && row.x != null ? row.x : ""),
-                y: String(row && row.y != null ? row.y : ""),
+                x: storedText(row && row.x),
+                y: storedText(row && row.y),
               };
             })
           : [{ x: "1", y: "1" }];
 
         state.expressions.push({
           id: state.nextId,
-          text: entry.text.slice(0, 500),
+          text: entry.text.slice(0, MAX_TEXT_LENGTH),
           color: colors[(state.nextId - 1) % colors.length],
           visible: entry.visible !== false,
           error: "",
@@ -1343,8 +1359,17 @@
       let changed = false;
 
       for (const name of Object.keys(state.parameters)) {
-        if (Number.isFinite(source[name]) && state.parameters[name].value !== source[name]) {
-          state.parameters[name].value = source[name];
+        const parameter = state.parameters[name];
+        const numeric = Number(source[name]);
+
+        if (!Number.isFinite(numeric)) {
+          continue;
+        }
+
+        const value = Math.min(parameter.max, Math.max(parameter.min, numeric));
+
+        if (parameter.value !== value) {
+          parameter.value = value;
           changed = true;
         }
       }
